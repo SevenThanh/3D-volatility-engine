@@ -1,35 +1,64 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import SurfacePlot from './components/SurfacePlot';
+import ControlPanel from './components/ControlPanel';
+import ArbTable from './components/ArbTable';
+import { getSurface, saveSnapshot } from './services/api';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [surfaceData, setSurfaceData] = useState(null);
+  const [loading, setLoading] = useState(false);``
+  const [error, setError] = useState(null);
+
+  const handleFetch = async (ticker, riskFreeRate) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getSurface(ticker, riskFreeRate);
+      setSurfaceData(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!surfaceData) return;
+    try {
+      await saveSnapshot(surfaceData);
+      alert('Snapshot saved');
+    } catch (err) {
+      alert('Save failed');
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="min-h-screen bg-gray-900 text-white p-8">
+      <h1 className="text-4xl font-bold mb-8">3D Implied Volatility Surface</h1>
+      
+      <ControlPanel onFetch={handleFetch} loading={loading} />
+      
+      {error && (
+        <div className="bg-red-900 p-4 rounded mb-4">{error}</div>
+      )}
+      
+      {surfaceData && (
+        <>
+          <div className="mb-4">
+            <button onClick={handleSave} className="bg-blue-600 px-4 py-2 rounded">
+              Save Snapshot
+            </button>
+          </div>
+          
+          <SurfacePlot data={surfaceData.surface_data} ticker={surfaceData.ticker} />
+          
+          {surfaceData.arbitrage_opportunities?.length > 0 && (
+            <ArbTable opportunities={surfaceData.arbitrage_opportunities} />
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
